@@ -21,7 +21,7 @@ Um bot simples para Discord que envia alertas climáticos a cada 3 horas, utiliz
 1. **Clone o repositório**:
 
    ```bash
-   git clone https://github.com/seu-usuario/seu-repositorio.git
+   git clone https://github.com/bypasz1/Weather-Python-BOT.git
    ```
 
 2. **Entre na pasta do projeto**:
