@@ -4,11 +4,11 @@ import requests
 import asyncio
 
 # Configurações do bot
-TOKEN = 'BOT-TOKEN'  # Substitua pelo seu token
-API_KEY = 'API-KEY'  # Substitua pela sua chave da API
+TOKEN = 'token'  # Substitua pelo seu token
+API_KEY = 'api'  # Substitua pela sua chave da API
 CHECK_INTERVAL = 3 * 60 * 60  # Intervalo de 3 horas
 
-# Configurando intents
+# Intents
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
@@ -16,9 +16,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 bot.remove_command('help')
 
-# Variáveis globais
+# Variáveis
 alert_active = False
-location = 'Campinas'  # Localização padrão
 
 def translate_condition(condition):
     translations = {
