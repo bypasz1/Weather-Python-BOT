@@ -5,7 +5,7 @@ import asyncio
 
 # Configurações do bot
 TOKEN = 'token'  # Substitua pelo seu token
-API_KEY = 'api'  # Substitua pela sua chave da API
+API_KEY = 'api_key'  # Substitua pela sua chave da API
 CHECK_INTERVAL = 3 * 60 * 60  # Intervalo de 3 horas
 
 # Intents
@@ -29,6 +29,7 @@ def translate_condition(condition):
         "Drizzle": "🌦️ Chuvisco",
         "Light rain": "🌧️ Chuva leve",
         "Thunderstorm": "⛈️ Tempestade",
+        "Heavy rain": "🌧️🌧️ Chuva forte",
         "Snow": "❄️ Neve",
         "Fog": "🌫️ Nebuloso",
         "Mist": "🌁 Nevoeiro",
@@ -51,15 +52,45 @@ async def fetch_weather(channel):
             location_info = data['location']
             time = location_info['localtime']
             date, hour = time.split()
+
+            # Informações principais
             condition = translate_condition(current['condition']['text'])
             temp_c = current['temp_c']
+            feels_like = current['feelslike_c']
+            humidity = current['humidity']
+            wind_speed = current['wind_kph']
+            wind_dir = current['wind_dir']
             
+            # Informações adicionais
+            pressure = current['pressure_mb']
+            cloud_cover = current['cloud']
+            visibility = current['vis_km']
+            uv_index = current['uv']
+            gust_speed = current['gust_kph']
+
+            # Verifica se há uma condição de tempestade
+            if current['condition']['text'] in ["Thunderstorm", "Heavy rain", "Rain"]:
+                alert_message = (f"⚠️ **ALERTA DE TEMPESTADE** ⚠️\n"
+                                 f"🌧️ Uma tempestade está ocorrendo em {location_info['name']}.\n"
+                                 f"Por favor, tome cuidado!\n\n")
+                await channel.send(alert_message)
+
+            # Mensagem formatada
             message = (f"**🌎 Clima em {location_info['name']}**\n"
                        f"📅 **Data:** {date}\n"
                        f"🕒 **Hora:** {hour}\n"
                        f"🌥️ **Condição:** {condition}\n"
-                       f"🌡️ **Temperatura:** {temp_c}°C\n")
-            
+                       f"🌡️ **Temperatura:** {temp_c}°C\n"
+                       f"🤔 **Sensação Térmica:** {feels_like}°C\n"
+                       f"💧 **Umidade:** {humidity}%\n"
+                       f"🌬️ **Vento:** {wind_speed} km/h {wind_dir}\n\n"
+                       f"🔍 **Informações adicionais:**\n"
+                       f"🌀 **Rajadas de vento:** {gust_speed} km/h\n"
+                       f"📊 **Pressão:** {pressure} hPa\n"
+                       f"☁️ **Cobertura de nuvens:** {cloud_cover}%\n"
+                       f"👁️ **Visibilidade:** {visibility} km\n"
+                       f"🌞 **Índice UV:** {uv_index}\n")
+
             await channel.send(message)
         await asyncio.sleep(CHECK_INTERVAL)
 
@@ -124,7 +155,6 @@ async def set_location(ctx, *, new_location: str):
 
     location = new_location.capitalize()  # Formata a nova localização
     await ctx.send(f"📍 Localização definida para: {location}.")
-
 
 @bot.command(name='ajuda')
 async def help_command(ctx):
