@@ -1,11 +1,29 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import requests
 import asyncio
+import os  # Import necessário para usar 'os.system'
+
+# Função para solicitar token e API key do usuário
+def solicitar_credenciais():
+    print("🚀 Inicializando o bot...")
+    token = input("🔑 Insira o Token do bot Discord: ")
+    api_key = input("🔑 Insira a API Key do WeatherAPI: ")
+
+    # Limpa o terminal após o input
+    if os.name == 'nt':  # Se for Windows
+        os.system('cls')
+    else:  # Se for Linux ou MacOS
+        os.system('clear')
+
+    # Aviso sobre possíveis erros
+    print("\n⚠️ Atenção: Caso o token ou a chave da API estejam incorretos, o bot pode não funcionar corretamente.")
+    return token, api_key
+
+# Inicializa as credenciais
+TOKEN, API_KEY = solicitar_credenciais()
 
 # Configurações do bot
-TOKEN = 'token'  # Substitua pelo seu token
-API_KEY = 'api_key'  # Substitua pela sua chave da API
 CHECK_INTERVAL = 3 * 60 * 60  # Intervalo de 3 horas
 
 # Intents
@@ -18,6 +36,8 @@ bot.remove_command('help')
 
 # Variáveis
 alert_active = False
+weather_task = None  # Variável para rastrear a tarefa de clima ativa
+location = None  # Variável para armazenar a localização
 
 def translate_condition(condition):
     translations = {
@@ -37,7 +57,8 @@ def translate_condition(condition):
         "Sand": "🏜️ Areia",
         "Ash": "🌋 Cinzas",
         "Squall": "🌊 Ressaca",
-        "Tornado": "🌪️ Tornado"
+        "Tornado": "🌪️ Tornado",
+        "Sunny": "☀️ Ensolarado"
     }
     return translations.get(condition, condition)
 
@@ -46,7 +67,7 @@ async def fetch_weather(channel):
     while alert_active:
         response = requests.get(f'http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={location}')
         data = response.json()
-        
+
         if "location" in data:
             current = data['current']
             location_info = data['location']
@@ -60,20 +81,13 @@ async def fetch_weather(channel):
             humidity = current['humidity']
             wind_speed = current['wind_kph']
             wind_dir = current['wind_dir']
-            
+
             # Informações adicionais
             pressure = current['pressure_mb']
             cloud_cover = current['cloud']
             visibility = current['vis_km']
             uv_index = current['uv']
             gust_speed = current['gust_kph']
-
-            # Verifica se há uma condição de tempestade
-            if current['condition']['text'] in ["Thunderstorm", "Heavy rain", "Rain"]:
-                alert_message = (f"⚠️ **ALERTA DE TEMPESTADE** ⚠️\n"
-                                 f"🌧️ Uma tempestade está ocorrendo em {location_info['name']}.\n"
-                                 f"Por favor, tome cuidado!\n\n")
-                await channel.send(alert_message)
 
             # Mensagem formatada
             message = (f"**🌎 Clima em {location_info['name']}**\n"
@@ -96,7 +110,7 @@ async def fetch_weather(channel):
 
 @bot.command(name='start')
 async def start_alert(ctx, *, user_location: str = None):
-    global alert_active
+    global alert_active, weather_task
     if alert_active:
         await ctx.send("⚠️ O alerta de clima já está ativo.")
         return
@@ -125,16 +139,23 @@ async def start_alert(ctx, *, user_location: str = None):
         
         alert_active = True
         await ctx.send(f"🚨 Alerta de clima iniciado para: {city_name}. Você receberá atualizações a cada 3 horas.")
-        await fetch_weather(ctx.channel)
+
+        # Inicia a tarefa de clima sem criar duplicatas
+        if weather_task is None or weather_task.done():
+            weather_task = asyncio.create_task(fetch_weather(ctx.channel))
     else:
         await ctx.send("❌ Cidade não encontrada. Tente novamente.")
 
 @bot.command(name='stop')
 async def stop_alert(ctx):
-    global alert_active
+    global alert_active, weather_task
     if alert_active:
         alert_active = False
         await ctx.send("🛑 Alerta de clima parado.")
+        
+        if weather_task and not weather_task.done():
+            weather_task.cancel()  # Cancela a tarefa de clima
+            weather_task = None
     else:
         await ctx.send("❌ Não há nenhum alerta de clima ativo. Use `!start` para começar.")
 
@@ -178,15 +199,6 @@ async def credits_command(ctx):
         "📝 Observação: A API gratuita tem limitações e não temos orçamento, este projeto é completamente educacional e introdutório."
     )
     await ctx.send(credits_message)
-
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-    if bot.user.mentioned_in(message):
-        await message.channel.send("👋 Olá! Para ajuda, digite `!ajuda`.")
-
-    await bot.process_commands(message)
 
 # Inicia o bot
 bot.run(TOKEN)
